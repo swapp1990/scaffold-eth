@@ -24,6 +24,9 @@ export default function MVPUI({
   const [canMint, setCanMint] = useState(null);
   const [aliensDefeated, setAliensDefeated] = useState(0);
   const [equipped, setEquipped] = useState([]);
+  const [alienWon, setAlienWon] = useState(false);
+
+  const [randRes, setRandRes] = useState([0, 0, 0]);
 
   const init = async () => {
     updateProfile();
@@ -42,10 +45,24 @@ export default function MVPUI({
     setEquipped(emptyEquipped);
   };
 
-  async function getRandom() {
-    const clientRandom = Math.floor(Math.random() * 100);
-    const rand = await readContracts.Alien.getRandom(clientRandom);
-    console.log("RANDOM ", Number(rand));
+  //Testing random probs of contract
+  //   async function getRandom() {
+  //     const clientRandom = Math.floor(Math.random() * 100);
+  //     const res = await readContracts.Alien.getRandomWin(clientRandom, 90);
+  //     console.log("RANDOM ", res);
+  //     let newState = [...randRes];
+  //     if (res == "Won") {
+  //       newState[0] = newState[0] + 1;
+  //     } else if (res == "Loss") {
+  //       newState[1] = newState[1] + 1;
+  //     }
+  //     newState[2] = newState[2] + 1;
+  //     setRandRes(newState);
+  //   }
+
+  async function getBuffTest() {
+    const res = await readContracts.Alien.getBuffValue(5, 25);
+    console.log("buff ", res.toNumber());
   }
 
   async function updateProfile() {
@@ -64,6 +81,7 @@ export default function MVPUI({
   }
 
   async function updateWallet() {
+    console.log({ address });
     const balanceLoot = await readContracts.ScifiLoot.balanceOf(address);
     console.log(balanceLoot.toNumber());
     const walletLootUpdate = [];
@@ -104,7 +122,7 @@ export default function MVPUI({
         try {
           const jsonManifest = JSON.parse(jsonManifestString);
           //   console.log("jsonManifest", jsonManifest);
-          setAlienSelected({ id: tokenId, uri: tokenURI, owner: address, ...jsonManifest });
+          setAlienSelected({ id: id, uri: tokenURI, owner: address, ...jsonManifest });
         } catch (e) {
           console.log(e);
         }
@@ -116,7 +134,7 @@ export default function MVPUI({
         if (!killedAliens.includes(tokenId)) {
           //   console.log("alien tokenId", tokenId);
           const alien = await readContracts.Alien.aliens(tokenId);
-          console.log({ alien });
+          //   console.log({ alien });
           if (alien.isDead) continue;
           const tokenURI = await readContracts["Alien"].tokenURI(tokenId);
           const jsonManifestString = atob(tokenURI.substring(29));
@@ -144,7 +162,7 @@ export default function MVPUI({
     await readContracts[contractName].removeListener(eventName);
     readContracts[contractName].on(eventName, (...args) => {
       let eventBlockNum = args[args.length - 1].blockNumber;
-      console.log(eventName);
+      console.log(eventName, eventBlockNum, localProvider._lastBlockNumber);
       if (eventBlockNum >= localProvider._lastBlockNumber - 1) {
         let msg = args.pop().args;
         callback(msg);
@@ -164,12 +182,14 @@ export default function MVPUI({
   }
 
   function onPlayerWon(msg) {
-    console.log("onPlayerWon", msg);
+    console.log("onPlayerWon", msg.probs.toNumber(), msg.buff.toNumber());
     updateGameScreen();
   }
 
   function onAlienWon(msg) {
-    console.log("onAlienWon", msg);
+    console.log("onAlienWon", msg.probs.toNumber(), msg.buff.toNumber());
+    setAlienWon(true);
+    setAlienSelected(null);
     updateGameScreen();
   }
 
@@ -211,6 +231,7 @@ export default function MVPUI({
     let foundAlien = aliens.find(a => a.id == idx);
     if (foundAlien) {
       setAlienSelected(foundAlien);
+      setAlienWon(false);
     }
   }
 
@@ -221,10 +242,7 @@ export default function MVPUI({
   async function fightAlien() {
     const clientRandom = Math.floor(Math.random() * 100);
     const probOfWin = 50;
-    const result = await tx(writeContracts.Alien.fightAlien(alienSelected.id, clientRandom, probOfWin));
-    // const dropAmount = await readContracts.Alien.fightAlien(alienSelected);
-    // console.log(dropAmount);
-    // setDropAmount(dropAmount);
+    const result = await tx(writeContracts.Alien.fightAlien(alienSelected.id, clientRandom));
   }
 
   async function mintLoot() {
@@ -232,7 +250,7 @@ export default function MVPUI({
       console.log("No alien selected!");
       return;
     }
-    const result = await tx(writeContracts.ScifiLoot.mintLoot(alienSelected.id, alienSelected.name));
+    const result = await tx(writeContracts.ScifiLoot.mintLoot(alienSelected.id, alienSelected.alienName));
     console.log(result);
   }
 
@@ -289,6 +307,7 @@ export default function MVPUI({
               >
                 CREATE PLAYER
               </Button>
+
               {/* <Button
                 type={"primary"}
                 onClick={() => {
@@ -296,6 +315,17 @@ export default function MVPUI({
                 }}
               >
                 Random
+              </Button>
+              <span> Won: {randRes[0]}</span>
+              <span> Loss: {randRes[1]}</span>
+              <span> Total: {randRes[2]}</span> */}
+              {/* <Button
+                type={"primary"}
+                onClick={() => {
+                  getBuffTest();
+                }}
+              >
+                BUFF
               </Button> */}
             </Space>
           </>
@@ -347,6 +377,7 @@ export default function MVPUI({
                           <List
                             grid={{ gutter: 16, column: 3 }}
                             dataSource={aliens}
+                            style={{ overflow: "auto", height: "400px" }}
                             renderItem={(item, idx) => (
                               <List.Item>
                                 <div onClick={() => alienChosen(item.id)}>
@@ -373,11 +404,14 @@ export default function MVPUI({
                                   </List.Item>
                                 )}
                               />
-                              <Button type={"primary"} onClick={() => fightAlien()}>
-                                Fight Alien
-                              </Button>
+                              {!alienWon && (
+                                <Button type={"primary"} onClick={() => fightAlien()}>
+                                  Fight Alien
+                                </Button>
+                              )}
                             </div>
                           )}
+                          {alienWon && <span>Alien won the fight! It has become stronger.</span>}
                         </Card>
                       )}
                       {canMint && (

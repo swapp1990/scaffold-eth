@@ -29,9 +29,16 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   });
 
   const alienContract = await ethers.getContract("Alien", deployer);
-  await alienContract.mintAlien("Allen");
-  await alienContract.mintAlien("Bernard");
-  await alienContract.mintAlien("Lucy");
+  await alienContract.mintAlien("Allen", 10);
+  await alienContract.mintAlien("Bernard", 20);
+  await alienContract.mintAlien("Lucy", 30);
+  await alienContract.mintAlien("Karen", 40);
+  await alienContract.mintAlien("Betty", 50);
+  await alienContract.mintAlien("Chad", 90);
+  await alienContract.mintAlien("Kyle", 70);
+  await alienContract.mintAlien("Brad", 80);
+  await alienContract.mintAlien("Kevin", 90);
+  await alienContract.mintAlien("Mark", 95);
   //   await yourContract.mintYourPlayer("swapp");
   //   const url = "https://austingriffith.com/portfolio/paintings/?id=zebra";
   //   await yourContract.mintCitizen(url, "CitizenRed1", 0);
