@@ -21,7 +21,7 @@ import {
   useUserSigner,
 } from "./hooks";
 // import Hints from "./Hints";
-import { ExampleUI, Hints, Subgraph } from "./views";
+import { MVPUI, LootUI, TreasureHuntUI, Hints, Subgraph } from "./views";
 import Portis from "@portis/web3";
 import Fortmatic from "fortmatic";
 import Authereum from "authereum";
@@ -50,7 +50,7 @@ const { ethers } = require("ethers");
 const targetNetwork = NETWORKS.localhost; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // 😬 Sorry for all the console logging
-const DEBUG = true;
+const DEBUG = false;
 const NETWORKCHECK = true;
 
 // 🛰 providers
@@ -60,9 +60,17 @@ if (DEBUG) console.log("📡 Connecting to Mainnet Ethereum");
 //
 // attempt to connect to our own scaffold eth rpc and if that fails fall back to infura...
 // Using StaticJsonRpcProvider as the chainId won't change see https://github.com/ethers-io/ethers.js/issues/901
-const scaffoldEthProvider = navigator.onLine ? new ethers.providers.StaticJsonRpcProvider("https://rpc.scaffoldeth.io:48544") : null;
-const poktMainnetProvider = navigator.onLine ? new ethers.providers.StaticJsonRpcProvider("https://eth-mainnet.gateway.pokt.network/v1/lb/611156b4a585a20035148406") : null;
-const mainnetInfura = navigator.onLine ? new ethers.providers.StaticJsonRpcProvider("https://mainnet.infura.io/v3/" + INFURA_ID) : null;
+const scaffoldEthProvider = navigator.onLine
+  ? new ethers.providers.StaticJsonRpcProvider("https://rpc.scaffoldeth.io:48544")
+  : null;
+const poktMainnetProvider = navigator.onLine
+  ? new ethers.providers.StaticJsonRpcProvider(
+      "https://eth-mainnet.gateway.pokt.network/v1/lb/611156b4a585a20035148406",
+    )
+  : null;
+const mainnetInfura = navigator.onLine
+  ? new ethers.providers.StaticJsonRpcProvider("https://mainnet.infura.io/v3/" + INFURA_ID)
+  : null;
 // ( ⚠️ Getting "failed to meet quorum" errors? Check your INFURA_I )
 
 // 🏠 Your local provider is usually pointed at your local blockchain
@@ -72,19 +80,18 @@ const localProviderUrlFromEnv = process.env.REACT_APP_PROVIDER ? process.env.REA
 if (DEBUG) console.log("🏠 Connecting to provider:", localProviderUrlFromEnv);
 const localProvider = new ethers.providers.StaticJsonRpcProvider(localProviderUrlFromEnv);
 
+// const isSigner = injectedProvider && injectedProvider.getSigner && injectedProvider.getSigner()._isSigner;
+
 // 🔭 block explorer URL
 const blockExplorer = targetNetwork.blockExplorer;
 
 // Coinbase walletLink init
 const walletLink = new WalletLink({
-  appName: 'coinbase',
+  appName: "coinbase",
 });
 
 // WalletLink provider
-const walletLinkProvider = walletLink.makeWeb3Provider(
-    `https://mainnet.infura.io/v3/${INFURA_ID}`,
-    1,
-);
+const walletLinkProvider = walletLink.makeWeb3Provider(`https://mainnet.infura.io/v3/${INFURA_ID}`, 1);
 
 // Portis ID: 6255fb2b-58c8-433b-a2c9-62098c05ddc9
 /*
@@ -93,7 +100,7 @@ const walletLinkProvider = walletLink.makeWeb3Provider(
 const web3Modal = new Web3Modal({
   network: "mainnet", // Optional. If using WalletConnect on xDai, change network to "xdai" and add RPC info below for xDai chain.
   cacheProvider: true, // optional
-  theme:"light", // optional. Change to "dark" for a dark theme.
+  theme: "light", // optional. Change to "dark" for a dark theme.
   providerOptions: {
     walletconnect: {
       package: WalletConnectProvider, // required
@@ -101,12 +108,11 @@ const web3Modal = new Web3Modal({
         bridge: "https://polygon.bridge.walletconnect.org",
         infuraId: INFURA_ID,
         rpc: {
-          1:`https://mainnet.infura.io/v3/${INFURA_ID}`, // mainnet // For more WalletConnect providers: https://docs.walletconnect.org/quick-start/dapps/web3-provider#required
+          1: `https://mainnet.infura.io/v3/${INFURA_ID}`, // mainnet // For more WalletConnect providers: https://docs.walletconnect.org/quick-start/dapps/web3-provider#required
           42: `https://kovan.infura.io/v3/${INFURA_ID}`,
-          100:"https://dai.poa.network", // xDai
+          100: "https://dai.poa.network", // xDai
         },
       },
-      
     },
     portis: {
       display: {
@@ -138,11 +144,11 @@ const web3Modal = new Web3Modal({
     //     },
     //   },
     // },
-    'custom-walletlink': {
+    "custom-walletlink": {
       display: {
-        logo: 'https://play-lh.googleusercontent.com/PjoJoG27miSglVBXoXrxBSLveV6e3EeBPpNY55aiUUBM9Q1RCETKCOqdOkX2ZydqVf0',
-        name: 'Coinbase',
-        description: 'Connect to Coinbase Wallet (not Coinbase App)',
+        logo: "https://play-lh.googleusercontent.com/PjoJoG27miSglVBXoXrxBSLveV6e3EeBPpNY55aiUUBM9Q1RCETKCOqdOkX2ZydqVf0",
+        name: "Coinbase",
+        description: "Connect to Coinbase Wallet (not Coinbase App)",
       },
       package: walletLinkProvider,
       connector: async (provider, options) => {
@@ -152,21 +158,24 @@ const web3Modal = new Web3Modal({
     },
     authereum: {
       package: Authereum, // required
-    }
+    },
   },
 });
 
-
-
 function App(props) {
-  const mainnetProvider = poktMainnetProvider && poktMainnetProvider._isProvider ? poktMainnetProvider : scaffoldEthProvider && scaffoldEthProvider._network ? scaffoldEthProvider : mainnetInfura;
+  const mainnetProvider =
+    poktMainnetProvider && poktMainnetProvider._isProvider
+      ? poktMainnetProvider
+      : scaffoldEthProvider && scaffoldEthProvider._network
+      ? scaffoldEthProvider
+      : mainnetInfura;
 
   const [injectedProvider, setInjectedProvider] = useState();
   const [address, setAddress] = useState();
 
   const logoutOfWeb3Modal = async () => {
     await web3Modal.clearCachedProvider();
-    if(injectedProvider && injectedProvider.provider && typeof injectedProvider.provider.disconnect == "function"){
+    if (injectedProvider && injectedProvider.provider && typeof injectedProvider.provider.disconnect == "function") {
       await injectedProvider.provider.disconnect();
     }
     setTimeout(() => {
@@ -223,9 +232,9 @@ function App(props) {
   const mainnetContracts = useContractLoader(mainnetProvider);
 
   // If you want to call a function on a new block
-  useOnBlock(mainnetProvider, () => {
-    console.log(`⛓ A new mainnet block is here: ${mainnetProvider._lastBlockNumber}`);
-  });
+  //   useOnBlock(mainnetProvider, () => {
+  //     console.log(`⛓ A new mainnet block is here: ${mainnetProvider._lastBlockNumber}`);
+  //   });
 
   // Then read your DAI balance like:
   const myMainnetDAIBalance = useContractReader(mainnetContracts, "DAI", "balanceOf", [
@@ -348,7 +357,6 @@ function App(props) {
     );
   }
 
-
   const loadWeb3Modal = useCallback(async () => {
     const provider = await web3Modal.connect();
     setInjectedProvider(new ethers.providers.Web3Provider(provider));
@@ -425,47 +433,7 @@ function App(props) {
               }}
               to="/"
             >
-              YourContract
-            </Link>
-          </Menu.Item>
-          <Menu.Item key="/hints">
-            <Link
-              onClick={() => {
-                setRoute("/hints");
-              }}
-              to="/hints"
-            >
-              Hints
-            </Link>
-          </Menu.Item>
-          <Menu.Item key="/exampleui">
-            <Link
-              onClick={() => {
-                setRoute("/exampleui");
-              }}
-              to="/exampleui"
-            >
-              ExampleUI
-            </Link>
-          </Menu.Item>
-          <Menu.Item key="/mainnetdai">
-            <Link
-              onClick={() => {
-                setRoute("/mainnetdai");
-              }}
-              to="/mainnetdai"
-            >
-              Mainnet DAI
-            </Link>
-          </Menu.Item>
-          <Menu.Item key="/subgraph">
-            <Link
-              onClick={() => {
-                setRoute("/subgraph");
-              }}
-              to="/subgraph"
-            >
-              Subgraph
+              Treasure Hunt
             </Link>
           </Menu.Item>
         </Menu>
@@ -478,24 +446,14 @@ function App(props) {
                 and give you a form to interact with it locally
             */}
 
-            <Contract
+            {/* <Contract
               name="YourContract"
               signer={userSigner}
               provider={localProvider}
               address={address}
               blockExplorer={blockExplorer}
-            />
-          </Route>
-          <Route path="/hints">
-            <Hints
-              address={address}
-              yourLocalBalance={yourLocalBalance}
-              mainnetProvider={mainnetProvider}
-              price={price}
-            />
-          </Route>
-          <Route path="/exampleui">
-            <ExampleUI
+            /> */}
+            <MVPUI
               address={address}
               userSigner={userSigner}
               mainnetProvider={mainnetProvider}
@@ -505,36 +463,20 @@ function App(props) {
               tx={tx}
               writeContracts={writeContracts}
               readContracts={readContracts}
-              purpose={purpose}
-              setPurposeEvents={setPurposeEvents}
             />
           </Route>
-          <Route path="/mainnetdai">
-            <Contract
-              name="DAI"
-              customContract={mainnetContracts && mainnetContracts.contracts && mainnetContracts.contracts.DAI}
-              signer={userSigner}
-              provider={mainnetProvider}
+
+          <Route path="/treasureHunt">
+            <TreasureHuntUI
               address={address}
-              blockExplorer="https://etherscan.io/"
-            />
-            {/*
-            <Contract
-              name="UNI"
-              customContract={mainnetContracts && mainnetContracts.contracts && mainnetContracts.contracts.UNI}
-              signer={userSigner}
-              provider={mainnetProvider}
-              address={address}
-              blockExplorer="https://etherscan.io/"
-            />
-            */}
-          </Route>
-          <Route path="/subgraph">
-            <Subgraph
-              subgraphUri={props.subgraphUri}
+              userSigner={userSigner}
+              mainnetProvider={mainnetProvider}
+              localProvider={localProvider}
+              yourLocalBalance={yourLocalBalance}
+              price={price}
               tx={tx}
               writeContracts={writeContracts}
-              mainnetProvider={mainnetProvider}
+              readContracts={readContracts}
             />
           </Route>
         </Switch>
