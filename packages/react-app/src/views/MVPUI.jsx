@@ -23,6 +23,7 @@ export default function MVPUI({
   const [alienSelected, setAlienSelected] = useState(null);
   const [canMint, setCanMint] = useState(null);
   const [aliensDefeated, setAliensDefeated] = useState(0);
+  const [equipped, setEquipped] = useState([]);
 
   const init = async () => {
     updateProfile();
@@ -33,6 +34,12 @@ export default function MVPUI({
     addEventListener("Player", "PlayerCreated", onPlayerCreated);
     addEventListener("Alien", "PlayerWon", onPlayerWon);
     addEventListener("Alien", "AlienWon", onAlienWon);
+
+    let emptyEquipped = [];
+    emptyEquipped.push({ id: 0, name: "Select from wallet" });
+    emptyEquipped.push({ id: 0, name: "Select from wallet" });
+    emptyEquipped.push({ id: 0, name: "Select from wallet" });
+    setEquipped(emptyEquipped);
   };
 
   async function getRandom() {
@@ -229,6 +236,39 @@ export default function MVPUI({
     console.log(result);
   }
 
+  function getBgColor(idx) {
+    let equippedFound = equipped.find(loot => loot.id == idx);
+    if (equippedFound) {
+      return { backgroundColor: "pink" };
+    }
+    return { backgroundColor: "white" };
+  }
+
+  function toggleToFight(idx) {
+    let equippedFound = equipped.find(loot => loot.id == idx);
+    if (equippedFound) {
+      console.log("equippedFound");
+      let selEquippedSlotIdx = equipped.findIndex(loot => loot.id === idx);
+      //   console.log("selEquippedSlotIdx");
+      let newState = [...equipped];
+      newState[selEquippedSlotIdx].id = 0;
+      newState[selEquippedSlotIdx].name = "Select from wallet";
+      newState[selEquippedSlotIdx].image = null;
+      setEquipped(newState);
+    } else {
+      let newState = [...equipped];
+      let walletLootFound = walletLoot.find(loot => loot.id == idx);
+      let emptySlotIdx = equipped.findIndex(loot => loot.id === 0);
+      console.log({ emptySlotIdx });
+      if (walletLootFound) {
+        newState[emptySlotIdx].id = walletLootFound.id;
+        newState[emptySlotIdx].name = walletLootFound.name;
+        newState[emptySlotIdx].image = walletLootFound.image;
+        setEquipped(newState);
+      }
+    }
+  }
+
   return (
     <>
       {!playerNft && (
@@ -286,9 +326,11 @@ export default function MVPUI({
                     dataSource={walletLoot}
                     renderItem={item => (
                       <List.Item>
-                        <Card title={item.name}>
-                          <img style={{ width: 150 }} src={item.image} />
-                        </Card>
+                        <div onClick={() => toggleToFight(item.id)}>
+                          <Card title={item.name} style={getBgColor(item.id)} hoverable>
+                            <img style={{ width: 150 }} src={item.image} />
+                          </Card>
+                        </div>
                       </List.Item>
                     )}
                   />
@@ -316,9 +358,25 @@ export default function MVPUI({
                             )}
                           />
                           {alienSelected && (
-                            <Button type={"primary"} onClick={() => fightAlien()}>
-                              Fight Alien
-                            </Button>
+                            <div>
+                              <div>Fill Slots</div>
+                              <List
+                                grid={{ gutter: 16, column: 3 }}
+                                dataSource={equipped}
+                                renderItem={(item, idx) => (
+                                  <List.Item>
+                                    <div onClick={() => console.log("equipped")}>
+                                      <Card hoverable bordered title={item.name}>
+                                        <img style={{ width: 100 }} src={item.image} />
+                                      </Card>
+                                    </div>
+                                  </List.Item>
+                                )}
+                              />
+                              <Button type={"primary"} onClick={() => fightAlien()}>
+                                Fight Alien
+                              </Button>
+                            </div>
                           )}
                         </Card>
                       )}
