@@ -16,12 +16,6 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     log: true,
   });
 
-  await deploy("ScifiLoot", {
-    from: deployer,
-    //args: [ "Hello", ethers.utils.parseEther("1.5") ],
-    log: true,
-  });
-
   await deploy("Alien", {
     from: deployer,
     //args: [ "Hello", ethers.utils.parseEther("1.5") ],
@@ -29,16 +23,31 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   });
 
   const alienContract = await ethers.getContract("Alien", deployer);
-  await alienContract.mintAlien("Allen", 10);
-  await alienContract.mintAlien("Bernard", 20);
-  await alienContract.mintAlien("Lucy", 30);
-  await alienContract.mintAlien("Karen", 40);
-  await alienContract.mintAlien("Betty", 50);
-  await alienContract.mintAlien("Chad", 90);
-  await alienContract.mintAlien("Kyle", 70);
-  await alienContract.mintAlien("Brad", 80);
-  await alienContract.mintAlien("Kevin", 90);
-  await alienContract.mintAlien("Mark", 95);
+  const names = ["Allen", "Bernard", "Lucy", "Karen"];
+  const baseProbs = [10, 20, 30, 40];
+
+  await alienContract.mintMultipleAliens(names, baseProbs);
+  //   await alienContract.mintAlien("Allen", 10);
+  //   await alienContract.mintAlien("Bernard", 20);
+  //   await alienContract.mintAlien("Lucy", 30);
+  //   await alienContract.mintAlien("Karen", 40);
+  //   await alienContract.mintAlien("Betty", 50);
+  //   await alienContract.mintAlien("Chad", 90);
+  //   await alienContract.mintAlien("Britney", 30);
+  //   await alienContract.mintAlien("Phil", 30);
+  //   await alienContract.mintAlien("Peter", 30);
+  //   await alienContract.mintAlien("Robert", 50);
+  //   await alienContract.mintAlien("Steven", 40);
+  //   await alienContract.mintAlien("Kyle", 70);
+  //   await alienContract.mintAlien("Brad", 80);
+  //   await alienContract.mintAlien("Kevin", 90);
+  //   await alienContract.mintAlien("Mark", 95);
+
+  await deploy("ScifiLoot", {
+    from: deployer,
+    args: [alienContract.address],
+    log: true,
+  });
   //   await yourContract.mintYourPlayer("swapp");
   //   const url = "https://austingriffith.com/portfolio/paintings/?id=zebra";
   //   await yourContract.mintCitizen(url, "CitizenRed1", 0);

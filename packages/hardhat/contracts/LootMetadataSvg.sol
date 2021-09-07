@@ -7,21 +7,30 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 library LootMetadataSvg {
 	using Strings for uint256;
 
-	function generateSVGofTokenById(address owne, string memory name, string memory catName) internal pure returns (string memory) {
+	function generateSVGofTokenById(address owne, string memory name, string memory catName, uint256 rarityLevel) internal pure returns (string memory) {
+		string memory rarity = "Common";
+		if(rarityLevel == 1) {
+			rarity = "Uncommon";
+		} else if(rarityLevel == 2) {
+			rarity = "Rare";
+		} else if(rarityLevel == 3) {
+			rarity = "Ultra Rare";
+		}
 		string memory svg = string(abi.encodePacked(
 		'<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">',
 		'<style>.title {fill: white; font-family: serif; font-size: 20px;}.name {fill: white; font-family: serif; font-size: 24px;}</style>',
 		'<rect width="100%" height="100%" fill="black"/>',
 		'<text x="50%" y="10%" dominant-baseline="middle" text-anchor="middle" class="title">Loot Dropped by Alien named ',name,'</text>',
+		'<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" class="title">',rarity,'</text>',
 		'<text x="50%" y="70%" dominant-baseline="middle" text-anchor="middle" class="title">',catName,'</text>',
 		'</svg>'
 		));
 		return svg;
 	}
 
-	function tokenURI(address owner, uint256 tokenId, string memory playerName, string memory catName) internal pure returns (string memory) {
+	function tokenURI(address owner, uint256 tokenId, string memory playerName, string memory catName, uint256 rarityLevel) internal pure returns (string memory) {
 		string memory name = string(abi.encodePacked('SciFi Loot #',tokenId.toString()));
-		string memory image = Base64.encode(bytes(generateSVGofTokenById(owner, playerName, catName)));
+		string memory image = Base64.encode(bytes(generateSVGofTokenById(owner, playerName, catName, rarityLevel)));
 
 		return string(
 			abi.encodePacked(

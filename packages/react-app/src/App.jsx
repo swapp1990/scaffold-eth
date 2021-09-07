@@ -47,7 +47,7 @@ const { ethers } = require("ethers");
 */
 
 /// 📡 What chain are your contracts deployed to?
-const targetNetwork = NETWORKS.rinkeby; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
+const targetNetwork = NETWORKS.localhost; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // 😬 Sorry for all the console logging
 const DEBUG = false;
@@ -433,7 +433,17 @@ function App(props) {
               }}
               to="/"
             >
-              Treasure Hunt
+              Scifi Loot
+            </Link>
+          </Menu.Item>
+          <Menu.Item key="/contract">
+            <Link
+              onClick={() => {
+                setRoute("/contract");
+              }}
+              to="/contract"
+            >
+              Contract
             </Link>
           </Menu.Item>
         </Menu>
@@ -446,13 +456,6 @@ function App(props) {
                 and give you a form to interact with it locally
             */}
 
-            {/* <Contract
-              name="YourContract"
-              signer={userSigner}
-              provider={localProvider}
-              address={address}
-              blockExplorer={blockExplorer}
-            /> */}
             <MVPUI
               address={address}
               userSigner={userSigner}
@@ -463,6 +466,16 @@ function App(props) {
               tx={tx}
               writeContracts={writeContracts}
               readContracts={readContracts}
+            />
+          </Route>
+
+          <Route path="/contract">
+            <Contract
+              name="Alien"
+              signer={userSigner}
+              provider={localProvider}
+              address={address}
+              blockExplorer={blockExplorer}
             />
           </Route>
 

@@ -6,10 +6,13 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./LootMetadataSvg.sol";
+import "./Alien.sol";
 
 contract ScifiLoot is ERC721, Ownable {
 	using Counters for Counters.Counter;
   	Counters.Counter private _tokenIds;
+	Alien alien;  
+	// address public owner;
 
 	string[] categories = [
 		"WEAPON",
@@ -22,6 +25,7 @@ contract ScifiLoot is ERC721, Ownable {
 		uint256 tokenId;
 		uint256 alienId;
 		string alienName;
+		uint256 rarityLevel;
 		uint256 category; 
 		bool exists;
 	}
@@ -31,25 +35,50 @@ contract ScifiLoot is ERC721, Ownable {
 
 	event LootMinted(uint256 tokenId, uint256 rand);
 
-	constructor() public ERC721("ScifiLoot", "SFL") {
+	// modifier onlyOwner {
+  	// 	require(msg.sender == owner);_;
+	// }
 
+	// function changeBase(address alienAddress) public onlyOwner returns(bool success) {
+	// 	alien = Alien(alienAddress);
+	// 	return true;
+	// }
+
+	constructor(address alienAddress) public ERC721("ScifiLoot", "SFL") {
+		alien = Alien(alienAddress);
+		alien.setLootAddress(address(this));
+		// owner = msg.sender;
   	}
 
 	function random(string memory input) internal pure returns (uint256) {
         return uint256(keccak256(abi.encodePacked(input)));
     }
 
-	function mintLoot(uint256 alienId, string memory alienName)
+	function conditionalMint(uint256 alienId) public returns (string memory) {
+		return alien.getAlienName(alienId);
+	}
+
+	function transferNft(uint256 tokenId, address address_to) public returns (bool) {
+		require(_exists(tokenId), "not exist");
+		transferFrom(ownerOf(tokenId), address_to, tokenId);
+		return true;
+	}
+
+	function mintLoot(uint256 alienId)
 		public
 		returns (uint256) {
 			require(deadAliens[alienId] == false, "Already minted!");
+			require(alien.isAlienExists(alienId), "Alien does not exist");
+			require(alien.checkCorrectPlayer(alienId, msg.sender), "Incorrect player");
+			uint256 rarityLevel = alien.getRarityFromDrop(alienId);
 			_tokenIds.increment();
 			uint256 id = _tokenIds.current();
      		_mint(msg.sender, id);
 			ScifiLoot storage loot = lootItems[id];
 			loot.tokenId = id;
 			loot.alienId = alienId;
-			loot.alienName = alienName;
+			loot.alienName = alien.getAlienName(alienId);
+			loot.rarityLevel = rarityLevel;
 			loot.exists = true;
 			deadAliens[alienId] = true;
 
@@ -58,6 +87,8 @@ contract ScifiLoot is ERC721, Ownable {
 
 			loot.category = catIdx;
 
+			approve(alien.getAddress(), id);
+
 			emit LootMinted(_tokenIds.current(), rand);
 			return id;
 		}
@@ -65,6 +96,24 @@ contract ScifiLoot is ERC721, Ownable {
 	function tokenURI(uint256 id) public view override returns (string memory) {
 		require(_exists(id), "not exist");
 		ScifiLoot storage a = lootItems[id];
-		return LootMetadataSvg.tokenURI( ownerOf(id), id, a.alienName, categories[a.category] );
+		return LootMetadataSvg.tokenURI( ownerOf(id), id, a.alienName, categories[a.category], a.rarityLevel );
+	}
+
+	function transferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) public virtual override {
+        require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
+
+        _transfer(from, to, tokenId);
+    }
+
+	function isTokenExists(uint256 id) public view returns(bool) {
+		return _exists(id);
+	}
+
+	function getAddress() public view returns (address) {
+		return address(this);
 	}
 }

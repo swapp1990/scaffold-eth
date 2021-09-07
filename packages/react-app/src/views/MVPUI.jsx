@@ -25,6 +25,7 @@ export default function MVPUI({
   const [aliensDefeated, setAliensDefeated] = useState(0);
   const [equipped, setEquipped] = useState([]);
   const [alienWon, setAlienWon] = useState(false);
+  const [logs, setLogs] = useState([]);
 
   const [randRes, setRandRes] = useState([0, 0, 0]);
 
@@ -37,6 +38,7 @@ export default function MVPUI({
     addEventListener("Player", "PlayerCreated", onPlayerCreated);
     addEventListener("Alien", "PlayerWon", onPlayerWon);
     addEventListener("Alien", "AlienWon", onAlienWon);
+    addEventListener("Alien", "PlayerLostLoot", onPlayerLostLoot);
 
     let emptyEquipped = [];
     emptyEquipped.push({ id: 0, name: "Select from wallet" });
@@ -65,6 +67,11 @@ export default function MVPUI({
     console.log("buff ", res.toNumber());
   }
 
+  async function testConditionalMint() {
+    const result = await tx(writeContracts.ScifiLoot.mintLoot(2, "testing"));
+    console.log(result);
+  }
+
   async function updateProfile() {
     const tokenId = await readContracts.Player.getTokenId(address);
     if (tokenId.toNumber() == 0) return;
@@ -89,7 +96,7 @@ export default function MVPUI({
       try {
         console.log("GEtting token index", tokenIndex);
         const tokenId = await readContracts.ScifiLoot.tokenOfOwnerByIndex(address, tokenIndex);
-        console.log("tokenId", tokenId);
+        // console.log("tokenId", tokenId);
         const tokenURI = await readContracts.ScifiLoot.tokenURI(tokenId);
         const jsonManifestString = atob(tokenURI.substring(29));
         try {
@@ -162,7 +169,7 @@ export default function MVPUI({
     await readContracts[contractName].removeListener(eventName);
     readContracts[contractName].on(eventName, (...args) => {
       let eventBlockNum = args[args.length - 1].blockNumber;
-      console.log(eventName, eventBlockNum, localProvider._lastBlockNumber);
+      //   console.log(eventName, eventBlockNum, localProvider._lastBlockNumber);
       if (eventBlockNum >= localProvider._lastBlockNumber - 1) {
         let msg = args.pop().args;
         callback(msg);
@@ -181,16 +188,35 @@ export default function MVPUI({
     console.log("onPlayerCreated", msg);
   }
 
-  function onPlayerWon(msg) {
-    console.log("onPlayerWon", msg.probs.toNumber(), msg.buff.toNumber());
-    updateGameScreen();
+  async function onPlayerWon(msg) {
+    console.log("onPlayerWon", msg.probs.toNumber(), msg.buff.toNumber(), msg.sender);
+    if (msg.sender == address) {
+      updateGameScreen();
+    } else {
+    }
+    const alien = await readContracts.Alien.aliens(msg.tokenId.toNumber());
+    const txt = msg.sender.substring(0, 6) + " killed alien named " + alien.name;
+    setLogs([...logs, { txt: txt }]);
   }
 
-  function onAlienWon(msg) {
-    console.log("onAlienWon", msg.probs.toNumber(), msg.buff.toNumber());
-    setAlienWon(true);
-    setAlienSelected(null);
-    updateGameScreen();
+  async function onAlienWon(msg) {
+    console.log("onAlienWon", msg.probs.toNumber(), msg.buff.toNumber(), msg.sender);
+    if (msg.sender == address) {
+      setAlienWon(true);
+      setAlienSelected(null);
+      updateGameScreen();
+    } else {
+    }
+    const alien = await readContracts.Alien.aliens(msg.tokenId.toNumber());
+    const txt = "Alien named " + alien.name + " defeated " + msg.sender.substring(0, 6);
+    setLogs([...logs, { txt: txt }]);
+  }
+
+  async function onPlayerLostLoot(msg) {
+    console.log("onPlayerLostLoot", msg.lostLootId.toNumber(), msg.sender);
+    if (msg.sender == address) {
+      updateWallet();
+    }
   }
 
   useEffect(() => {
@@ -242,7 +268,7 @@ export default function MVPUI({
   async function fightAlien() {
     const clientRandom = Math.floor(Math.random() * 100);
     const probOfWin = 50;
-    const result = await tx(writeContracts.Alien.fightAlien(alienSelected.id, clientRandom));
+    const result = await tx(writeContracts.Alien.fightAlien(alienSelected.id, clientRandom, [1]));
   }
 
   async function mintLoot() {
@@ -250,7 +276,7 @@ export default function MVPUI({
       console.log("No alien selected!");
       return;
     }
-    const result = await tx(writeContracts.ScifiLoot.mintLoot(alienSelected.id, alienSelected.alienName));
+    const result = await tx(writeContracts.ScifiLoot.mintLoot(alienSelected.id));
     console.log(result);
   }
 
@@ -287,6 +313,111 @@ export default function MVPUI({
     }
   }
 
+  const walletComp = (
+    <Card title="Wallet">
+      <List
+        grid={{ gutter: 16, column: 2 }}
+        dataSource={walletLoot}
+        renderItem={item => (
+          <List.Item>
+            <div onClick={() => toggleToFight(item.id)}>
+              <Card title={item.name} style={getBgColor(item.id)} hoverable>
+                <img style={{ width: 150 }} src={item.image} />
+                <a
+                  href={
+                    "https://opensea.io/assets/" +
+                    (readContracts && readContracts.ScifiLoot && readContracts.ScifiLoot.address) +
+                    "/" +
+                    item.id
+                  }
+                  target="_blank"
+                >
+                  View on OpenSea
+                </a>
+              </Card>
+            </div>
+          </List.Item>
+        )}
+      />
+    </Card>
+  );
+
+  const gameScreen = (
+    <Card style={{ width: 800, height: 750 }} title="Game Screen">
+      <div style={{ maxWidth: 820, margin: "auto", marginTop: 32, paddingBottom: 32 }}>
+        <>
+          {!canMint && (
+            <Card title="Which alien do you choose to fight?">
+              <div>Aliens Defeated: {aliensDefeated}</div>
+              {alienSelected && <span>Chosen Alien: {alienSelected.alienName}</span>}
+              <List
+                grid={{ gutter: 16, column: 3 }}
+                dataSource={aliens}
+                style={{ overflow: "auto", height: "400px" }}
+                renderItem={(item, idx) => (
+                  <List.Item>
+                    <div onClick={() => alienChosen(item.id)}>
+                      <Card hoverable bordered title={item.name}>
+                        <img style={{ width: 150 }} src={item.image} />
+                      </Card>
+                    </div>
+                  </List.Item>
+                )}
+              />
+              {alienSelected && (
+                <div>
+                  <div>Fill Slots</div>
+                  <List
+                    grid={{ gutter: 16, column: 3 }}
+                    dataSource={equipped}
+                    renderItem={(item, idx) => (
+                      <List.Item>
+                        <div onClick={() => console.log("equipped")}>
+                          <Card hoverable bordered title={item.name}>
+                            <img style={{ width: 100 }} src={item.image} />
+                          </Card>
+                        </div>
+                      </List.Item>
+                    )}
+                  />
+                  {!alienWon && (
+                    <Button type={"primary"} onClick={() => fightAlien()}>
+                      Fight Alien
+                    </Button>
+                  )}
+                </div>
+              )}
+              {alienWon && <span>Alien won the fight! It has become stronger.</span>}
+            </Card>
+          )}
+          {canMint && (
+            <Card title="You won the fight! Grab your loot!">
+              <Button type={"primary"} onClick={() => mintLoot()}>
+                Mint Loot
+              </Button>
+            </Card>
+          )}
+        </>
+      </div>
+    </Card>
+  );
+
+  const logsScreen = (
+    <Card style={{ width: 400, height: 750 }} title="Logs">
+      <List
+        grid={{ gutter: 16, column: 1 }}
+        dataSource={logs}
+        renderItem={item => (
+          <List.Item>
+            <div onClick={() => console.log(item)}>
+              <Card>{item.txt}</Card>
+            </div>
+          </List.Item>
+        )}
+      />
+    </Card>
+  );
+
   return (
     <>
       {!playerNft && (
@@ -319,20 +450,20 @@ export default function MVPUI({
               <span> Won: {randRes[0]}</span>
               <span> Loss: {randRes[1]}</span>
               <span> Total: {randRes[2]}</span> */}
-              {/* <Button
+              <Button
                 type={"primary"}
                 onClick={() => {
-                  getBuffTest();
+                  testConditionalMint();
                 }}
               >
-                BUFF
-              </Button> */}
+                MINT
+              </Button>
             </Space>
           </>
         </div>
       )}
       {playerNft && (
-        <div style={{ width: 820, paddingBottom: 256, marginLeft: 128 }}>
+        <div style={{ width: 820, paddingBottom: 256, marginLeft: 64 }}>
           <>
             <Space>
               <Space direction="vertical">
@@ -350,81 +481,10 @@ export default function MVPUI({
                   <img src={playerNft.image} />
                   {/* <div>{item.description}</div> */}
                 </Card>
-                <Card title="Wallet">
-                  <List
-                    grid={{ gutter: 16, column: 2 }}
-                    dataSource={walletLoot}
-                    renderItem={item => (
-                      <List.Item>
-                        <div onClick={() => toggleToFight(item.id)}>
-                          <Card title={item.name} style={getBgColor(item.id)} hoverable>
-                            <img style={{ width: 150 }} src={item.image} />
-                          </Card>
-                        </div>
-                      </List.Item>
-                    )}
-                  />
-                </Card>
+                {walletComp}
               </Space>
-              <Space align="baseline">
-                <Card style={{ width: 750, height: 750 }} title="Game Screen">
-                  <div style={{ maxWidth: 820, margin: "auto", marginTop: 32, paddingBottom: 32 }}>
-                    <>
-                      {!canMint && (
-                        <Card title="Which alien do you choose to fight?">
-                          <div>Aliens Defeated: {aliensDefeated}</div>
-                          {alienSelected && <span>Chosen Alien: {alienSelected.alienName}</span>}
-                          <List
-                            grid={{ gutter: 16, column: 3 }}
-                            dataSource={aliens}
-                            style={{ overflow: "auto", height: "400px" }}
-                            renderItem={(item, idx) => (
-                              <List.Item>
-                                <div onClick={() => alienChosen(item.id)}>
-                                  <Card hoverable bordered title={item.name}>
-                                    <img style={{ width: 150 }} src={item.image} />
-                                  </Card>
-                                </div>
-                              </List.Item>
-                            )}
-                          />
-                          {alienSelected && (
-                            <div>
-                              <div>Fill Slots</div>
-                              <List
-                                grid={{ gutter: 16, column: 3 }}
-                                dataSource={equipped}
-                                renderItem={(item, idx) => (
-                                  <List.Item>
-                                    <div onClick={() => console.log("equipped")}>
-                                      <Card hoverable bordered title={item.name}>
-                                        <img style={{ width: 100 }} src={item.image} />
-                                      </Card>
-                                    </div>
-                                  </List.Item>
-                                )}
-                              />
-                              {!alienWon && (
-                                <Button type={"primary"} onClick={() => fightAlien()}>
-                                  Fight Alien
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                          {alienWon && <span>Alien won the fight! It has become stronger.</span>}
-                        </Card>
-                      )}
-                      {canMint && (
-                        <Card title="You won the fight! Grab your loot!">
-                          <Button type={"primary"} onClick={() => mintLoot()}>
-                            Mint Loot
-                          </Button>
-                        </Card>
-                      )}
-                    </>
-                  </div>
-                </Card>
-              </Space>
+              <Space align="baseline">{gameScreen}</Space>
+              <Space align="baseline">{logsScreen}</Space>
             </Space>
           </>
         </div>

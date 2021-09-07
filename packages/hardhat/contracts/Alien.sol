@@ -6,7 +6,10 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+pragma experimental ABIEncoderV2;
+
 import "./AlienMetadataSvg.sol";
+import "./ScifiLoot.sol";
 
 contract Alien is ERC721, Ownable  {
 	using SafeMath for uint256;
@@ -14,6 +17,8 @@ contract Alien is ERC721, Ownable  {
   	Counters.Counter private _tokenIds;
 	uint public lastTokenId;
 	uint private maxWinCount;
+
+	ScifiLoot loot;
 
 	struct Alien {
 		uint256 tokenId;
@@ -28,12 +33,17 @@ contract Alien is ERC721, Ownable  {
 	mapping (address => uint256[]) public player2deadAliens;
 	mapping (address => uint256) public player2wins;
 
-	event PlayerWon(uint256 tokenId, uint256 probs, uint256 buff);
-	event AlienWon(uint256 tokenId, uint256 probs, uint256 buff);
-
+	event PlayerWon(uint256 tokenId, uint256 probs, uint256 buff, address sender);
+	event AlienWon(uint256 tokenId, uint256 probs, uint256 buff, address sender);
+	event PlayerLostLoot(uint256 tokenId, uint256 lostLootId, address sender);
+	
 	constructor() public ERC721("Alien", "ALN") {
 		maxWinCount = 20;
   	}
+
+	function setLootAddress(address lootAddress) public {
+		loot = ScifiLoot(lootAddress);
+	}
 
 	function mintAlien(string memory name, uint256 baseProbs)
 		public
@@ -49,24 +59,57 @@ contract Alien is ERC721, Ownable  {
 			alien.exists = true;
 			return id; 
 		}
+	
+	function mintMultipleAliens(string[] memory names, uint256[] memory baseProbs) public {
+		for(uint i=0; i<baseProbs.length; i++) {
+			_tokenIds.increment();
+			uint256 id = _tokenIds.current();
+     		_mint(msg.sender, id);
+			lastTokenId = id;
+			Alien storage alien = aliens[id];
+			alien.tokenId = id;
+			alien.name = names[i];
+			alien.baseProbs = baseProbs[i];
+			alien.exists = true;
+		}
+	}
 
-	function fightAlien(uint256 id, uint256 clientRandom) public returns(uint256) {
+	function getFinalProbs(uint256 baseProbs, uint256 wonCount, uint256[] memory loot_idxs) public view returns (uint256) {
+		uint256 remainProbs = 100 - baseProbs;
+		uint256 additionalBuff = getBuffValue(wonCount, remainProbs);
+		uint256 totalRarityBuff = 0;
+		for(uint i=0; i<loot_idxs.length; i++) {
+			uint256 rarityBuff = 33;
+			totalRarityBuff = totalRarityBuff+rarityBuff;
+		}
+		
+		uint256 modifiedBaseProbs = baseProbs - (totalRarityBuff * baseProbs/100);
+		uint256 finalProbs = modifiedBaseProbs + additionalBuff;
+		return finalProbs;
+	}
+
+	function testFight(uint256 baseProbs, uint256 wonCount, uint256[] memory loot_idxs) public view returns(uint256){
+		return getFinalProbs(baseProbs, wonCount, loot_idxs);
+	}
+
+	function fightAlien(uint256 id, uint256 clientRandom, uint256[] memory loot_idxs) public returns(uint256) {
 		uint256 rand100 = getRandom(clientRandom);
 		Alien storage alien = aliens[id];
-		uint256 remainProbs = 100 - alien.baseProbs;
-		uint256 additionalBuff = getBuffValue(alien.wonCount, remainProbs);
-		
-		if(rand100 > alien.baseProbs + additionalBuff) {
+		uint256 finalProbs = getFinalProbs(alien.baseProbs, alien.wonCount, loot_idxs);
+		if(rand100 > finalProbs) {
 			player2wins[msg.sender] = player2wins[msg.sender]+1;
 			player2deadAliens[msg.sender].push(id);
 			alien.isDead = true;
-			emit PlayerWon(id, alien.baseProbs, additionalBuff);
+			emit PlayerWon(id, alien.baseProbs, finalProbs, msg.sender);
 		} else {
 			alien.wonCount = alien.wonCount+1;
-			emit AlienWon(id, alien.baseProbs, additionalBuff);
+			emit AlienWon(id, alien.baseProbs, finalProbs, msg.sender);
+			if(loot_idxs.length > 0) {
+				loot.transferNft(loot_idxs[0], address(this));
+				emit PlayerLostLoot(id, loot_idxs[0], msg.sender); 
+			}
 		}
-		
-		return 2;
+		return finalProbs;
 	}
 	
 	function tokenURI(uint256 id) public view override returns (string memory) {
@@ -111,4 +154,44 @@ contract Alien is ERC721, Ownable  {
 		return additionalBuffFinal;
 	}
 
+	function isAlienExists(uint256 tokenId) public view returns (bool) {
+		return aliens[tokenId].exists;
+	}
+
+	function getAlienName(uint256 tokenId) public view returns (string memory) {
+		return aliens[tokenId].name;
+	}
+
+	function checkCorrectPlayer(uint256 tokenId, address player) public view returns (bool) {
+		uint arrayLength = player2deadAliens[player].length;
+		if(arrayLength == 0) return false;
+		bool correct=false;
+		for(uint i=0; i<arrayLength; i++) {
+			if(player2deadAliens[player][i]==tokenId) {
+				correct=true;
+				break;
+			}
+		}
+		return correct;
+	}
+
+	function getRarityFromDrop(uint256 tokenId) public view returns (uint256) {
+		require(_exists(tokenId), "not exist");
+		Alien storage a = aliens[tokenId];
+		if(a.wonCount > 0) {
+			if(a.wonCount > 2) {
+				if(a.wonCount > 10) {
+					return 3;
+				}
+				return 2;
+			}
+			return 1;
+		}
+		return 0;
+	}
+
+	function getAddress() public view returns (address) {
+		return address(this);
+	}
+	
 }
