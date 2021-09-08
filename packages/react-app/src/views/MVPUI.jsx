@@ -1,7 +1,25 @@
-import { Button, Card, DatePicker, Divider, Input, List, Progress, Slider, Spin, Switch, Row, Col, Space } from "antd";
+import {
+  Button,
+  Card,
+  DatePicker,
+  Divider,
+  Input,
+  List,
+  Progress,
+  Slider,
+  Spin,
+  Switch,
+  Row,
+  Col,
+  Space,
+  Typography,
+} from "antd";
+
 import React, { useEffect, useState } from "react";
 import { ReactComponent as CardEx } from "../card_ex.svg";
 import { useContractReader } from "../hooks";
+
+const { Text, Link } = Typography;
 
 export default function MVPUI({
   address,
@@ -25,9 +43,18 @@ export default function MVPUI({
   const [aliensDefeated, setAliensDefeated] = useState(0);
   const [equipped, setEquipped] = useState([]);
   const [alienWon, setAlienWon] = useState(false);
+  const [playerLostLoot, setPlayerLostLoot] = useState(false);
   const [logs, setLogs] = useState([]);
 
   const [randRes, setRandRes] = useState([0, 0, 0]);
+
+  function initEmptyEquip() {
+    let emptyEquipped = [];
+    emptyEquipped.push({ id: 0, name: "Select from wallet" });
+    emptyEquipped.push({ id: 0, name: "Select from wallet" });
+    emptyEquipped.push({ id: 0, name: "Select from wallet" });
+    setEquipped(emptyEquipped);
+  }
 
   const init = async () => {
     updateProfile();
@@ -40,11 +67,7 @@ export default function MVPUI({
     addEventListener("Alien", "AlienWon", onAlienWon);
     addEventListener("Alien", "PlayerLostLoot", onPlayerLostLoot);
 
-    let emptyEquipped = [];
-    emptyEquipped.push({ id: 0, name: "Select from wallet" });
-    emptyEquipped.push({ id: 0, name: "Select from wallet" });
-    emptyEquipped.push({ id: 0, name: "Select from wallet" });
-    setEquipped(emptyEquipped);
+    initEmptyEquip();
   };
 
   //Testing random probs of contract
@@ -74,13 +97,16 @@ export default function MVPUI({
 
   async function updateProfile() {
     const tokenId = await readContracts.Player.getTokenId(address);
-    if (tokenId.toNumber() == 0) return;
+    if (tokenId.toNumber() == 0) {
+      console.log("tokenId is not set");
+      return;
+    }
     const tokenURI = await readContracts.Player.tokenURI(tokenId);
     const jsonManifestString = atob(tokenURI.substring(29));
     // console.log({ jsonManifestString });
     try {
       const jsonManifest = JSON.parse(jsonManifestString);
-      console.log("jsonManifest", jsonManifest);
+      //   console.log("jsonManifest", jsonManifest);
       setPlayerNft({ id: tokenId, uri: tokenURI, owner: address, ...jsonManifest });
     } catch (e) {
       console.log(e);
@@ -90,7 +116,6 @@ export default function MVPUI({
   async function updateWallet() {
     console.log({ address });
     const balanceLoot = await readContracts.ScifiLoot.balanceOf(address);
-    console.log(balanceLoot.toNumber());
     const walletLootUpdate = [];
     for (let tokenIndex = 0; tokenIndex < balanceLoot; tokenIndex++) {
       try {
@@ -118,7 +143,7 @@ export default function MVPUI({
     let killedAliens = await readContracts.Alien.getKilledAliens(address);
     // console.log({ deadAliens });
     killedAliens = killedAliens.map(d => d.toNumber());
-    console.log({ killedAliens });
+    // console.log({ killedAliens });
     setCanMint(false);
     killedAliens.forEach(async id => {
       const isLootMinted = await readContracts.ScifiLoot.deadAliens(id);
@@ -161,7 +186,7 @@ export default function MVPUI({
     setAliens(aliensUpdate);
 
     const player_wins = (await readContracts.Alien.player2wins(address)).toNumber();
-    console.log({ player_wins });
+    // console.log({ player_wins });
     setAliensDefeated(player_wins);
   }
 
@@ -196,7 +221,7 @@ export default function MVPUI({
     }
     const alien = await readContracts.Alien.aliens(msg.tokenId.toNumber());
     const txt = msg.sender.substring(0, 6) + " killed alien named " + alien.name;
-    setLogs([...logs, { txt: txt }]);
+    updateLogs(txt);
   }
 
   async function onAlienWon(msg) {
@@ -209,21 +234,32 @@ export default function MVPUI({
     }
     const alien = await readContracts.Alien.aliens(msg.tokenId.toNumber());
     const txt = "Alien named " + alien.name + " defeated " + msg.sender.substring(0, 6);
-    setLogs([...logs, { txt: txt }]);
+    updateLogs(txt);
+  }
+
+  function updateLogs(txt) {
+    let prevLogs = logs;
+    prevLogs.push({ txt: txt });
+    prevLogs = prevLogs.filter((value, index, self) => {
+      return self.indexOf(value) === index;
+    });
+    setLogs(prevLogs);
   }
 
   async function onPlayerLostLoot(msg) {
     console.log("onPlayerLostLoot", msg.lostLootId.toNumber(), msg.sender);
     if (msg.sender == address) {
+      setPlayerLostLoot(true);
       updateWallet();
     }
   }
 
-  useEffect(() => {
+  useEffect(async () => {
     if (readContracts && readContracts.Player) {
       init();
     }
-  }, [readContracts]);
+  }, [readContracts, address]);
+
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
   const atob = input => {
     let str = input.replace(/=+$/, "");
@@ -258,6 +294,7 @@ export default function MVPUI({
     if (foundAlien) {
       setAlienSelected(foundAlien);
       setAlienWon(false);
+      setPlayerLostLoot(false);
     }
   }
 
@@ -267,8 +304,11 @@ export default function MVPUI({
 
   async function fightAlien() {
     const clientRandom = Math.floor(Math.random() * 100);
-    const probOfWin = 50;
-    const result = await tx(writeContracts.Alien.fightAlien(alienSelected.id, clientRandom, [1]));
+    // console.log({ equipped });
+    let lootsSelected = equipped.filter(e => e.id != 0).map(e => e.id.toNumber());
+    // console.log({ lootsSelected });
+    const result = await tx(writeContracts.Alien.fightAlien(alienSelected.id, clientRandom, lootsSelected));
+    initEmptyEquip();
   }
 
   async function mintLoot() {
@@ -318,6 +358,7 @@ export default function MVPUI({
       <List
         grid={{ gutter: 16, column: 2 }}
         dataSource={walletLoot}
+        style={{ overflowY: "auto", overflowX: "hidden", height: "400px" }}
         renderItem={item => (
           <List.Item>
             <div onClick={() => toggleToFight(item.id)}>
@@ -343,7 +384,7 @@ export default function MVPUI({
   );
 
   const gameScreen = (
-    <Card style={{ width: 800, height: 750 }} title="Game Screen">
+    <Card style={{ width: 800 }} title="Game Screen">
       <div style={{ maxWidth: 820, margin: "auto", marginTop: 32, paddingBottom: 32 }}>
         <>
           {!canMint && (
@@ -387,7 +428,8 @@ export default function MVPUI({
                   )}
                 </div>
               )}
-              {alienWon && <span>Alien won the fight! It has become stronger.</span>}
+              {alienWon && <Text mark>Alien won the fight! It has become stronger.</Text>}
+              {playerLostLoot && <Text mark>Sorry you lost your NFT loot to the alien!</Text>}
             </Card>
           )}
           {canMint && (
@@ -403,10 +445,11 @@ export default function MVPUI({
   );
 
   const logsScreen = (
-    <Card style={{ width: 400, height: 750 }} title="Logs">
+    <Card style={{ width: 400 }} title="Logs">
       <List
         grid={{ gutter: 16, column: 1 }}
         dataSource={logs}
+        style={{ overflowY: "auto", overflowX: "hidden", height: "600px" }}
         renderItem={item => (
           <List.Item>
             <div onClick={() => console.log(item)}>
@@ -450,14 +493,14 @@ export default function MVPUI({
               <span> Won: {randRes[0]}</span>
               <span> Loss: {randRes[1]}</span>
               <span> Total: {randRes[2]}</span> */}
-              <Button
+              {/* <Button
                 type={"primary"}
                 onClick={() => {
                   testConditionalMint();
                 }}
               >
                 MINT
-              </Button>
+              </Button> */}
             </Space>
           </>
         </div>
@@ -465,7 +508,7 @@ export default function MVPUI({
       {playerNft && (
         <div style={{ width: 820, paddingBottom: 256, marginLeft: 64 }}>
           <>
-            <Space>
+            <Space align="start">
               <Space direction="vertical">
                 <Card
                   style={{ width: 450 }}
@@ -483,7 +526,7 @@ export default function MVPUI({
                 </Card>
                 {walletComp}
               </Space>
-              <Space align="baseline">{gameScreen}</Space>
+              <Space>{gameScreen}</Space>
               <Space align="baseline">{logsScreen}</Space>
             </Space>
           </>

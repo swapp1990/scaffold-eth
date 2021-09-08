@@ -89,7 +89,10 @@ contract Alien is ERC721, Ownable  {
 	}
 
 	function testFight(uint256 baseProbs, uint256 wonCount, uint256[] memory loot_idxs) public view returns(uint256){
-		return getFinalProbs(baseProbs, wonCount, loot_idxs);
+		uint256 rand100 = getRandom(23);
+		uint256 lootIdx = rand100 % loot_idxs.length;
+		// return getFinalProbs(baseProbs, wonCount, loot_idxs);
+		return lootIdx;
 	}
 
 	function fightAlien(uint256 id, uint256 clientRandom, uint256[] memory loot_idxs) public returns(uint256) {
@@ -104,9 +107,10 @@ contract Alien is ERC721, Ownable  {
 		} else {
 			alien.wonCount = alien.wonCount+1;
 			emit AlienWon(id, alien.baseProbs, finalProbs, msg.sender);
-			if(loot_idxs.length > 0) {
-				loot.transferNft(loot_idxs[0], address(this));
-				emit PlayerLostLoot(id, loot_idxs[0], msg.sender); 
+			if(loot_idxs.length > 0 && rand100>50) {
+				uint256 lootIdx = rand100 % loot_idxs.length;
+				loot.transferNft(loot_idxs[lootIdx], address(this));
+				emit PlayerLostLoot(id, loot_idxs[lootIdx], msg.sender); 
 			}
 		}
 		return finalProbs;

@@ -23,7 +23,7 @@ describe("My NFT Game", function () {
         console.log(buff.toNumber());
         buff = await alienContract.testFight(50, 3, [1, 2]);
         console.log(buff.toNumber());
-        buff = await alienContract.testFight(90, 3, [1, 2]);
+        buff = await alienContract.testFight(90, 3, [1]);
         console.log(buff.toNumber());
       });
     });
