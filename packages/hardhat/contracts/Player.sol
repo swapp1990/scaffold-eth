@@ -15,6 +15,8 @@ contract Player is ERC721("Player", "PLR") {
 		uint256 tokenId;
 		bool exists;
 		string name;
+		uint8 level;
+		uint256 xp;
 	}
 
 	mapping (address => uint256) public addr2token;
@@ -46,11 +48,22 @@ contract Player is ERC721("Player", "PLR") {
 			emit PlayerCreated(_tokenIds.current());
 			return id; 
 		}
+
+	function addXP(uint256 id, uint256 _xp) external onlyOwner returns (bool) {
+		require(_exists(id), "Non-existent player");
+		Player storage p = players[ownerOf(id)];
+		p.xp += _xp;
+		if ((p.xp > 100**((10+p.level)/10)) && (p.level <= type(uint8).max)) {
+			p.level++;
+			p.xp = 0;
+		}
+		return true;
+	}
 	
 	function tokenURI(uint256 id) public view override returns (string memory) {
-		require(_exists(id), "not exist");
+		require(_exists(id), "Non-existent player");
 		Player storage p = players[ownerOf(id)];
-		return PlayerMetadataSvg.tokenURI( ownerOf(id), id, p.name );
+		return PlayerMetadataSvg.tokenURI(ownerOf(id), id, p.name, p.level, p.xp);
 	}
 
 	function getTokenId(address addr) public view returns (uint256) {
