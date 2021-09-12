@@ -71,7 +71,9 @@ contract ScifiLoot is ERC721, Ownable {
 
 	function mintPlayer(string memory name) external returns (uint256) {
 		require(players[msg.sender] == 0, "Player exists in game");
-
+		uint256 id = player.mint(name);
+		players[msg.sender] = id;
+		return id;
 	}
 
 	function mintLoot(uint256 alienId)
