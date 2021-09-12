@@ -1,5 +1,5 @@
-pragma solidity >=0.6.0 <0.8.0;
 //SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
@@ -7,11 +7,13 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./LootMetadataSvg.sol";
 import "./Alien.sol";
+import "./Player.sol";
 
 contract ScifiLoot is ERC721, Ownable {
 	using Counters for Counters.Counter;
   	Counters.Counter private _tokenIds;
-	Alien alien;  
+	Alien alien;
+	Player player;
 	// address public owner;
 
 	string[] categories = [
@@ -32,6 +34,7 @@ contract ScifiLoot is ERC721, Ownable {
 
 	mapping (uint256 => ScifiLoot) public lootItems;
 	mapping (uint256 => bool) public deadAliens;
+	mapping (address => uint256) public players;
 
 	event LootMinted(uint256 tokenId, uint256 rand);
 
@@ -44,9 +47,11 @@ contract ScifiLoot is ERC721, Ownable {
 	// 	return true;
 	// }
 
-	constructor(address alienAddress) public ERC721("ScifiLoot", "SFL") {
+	constructor(address alienAddress, address playerAddress) public ERC721("ScifiLoot", "SFL") {
 		alien = Alien(alienAddress);
-		alien.setLootAddress(address(this));
+		alien.initialize();
+		player = Player(playerAddress);
+		player.initialize();
 		// owner = msg.sender;
   	}
 
@@ -62,6 +67,11 @@ contract ScifiLoot is ERC721, Ownable {
 		require(_exists(tokenId), "not exist");
 		transferFrom(ownerOf(tokenId), address_to, tokenId);
 		return true;
+	}
+
+	function mintPlayer(string memory name) external returns (uint256) {
+		require(players[msg.sender] == 0, "Player exists in game");
+
 	}
 
 	function mintLoot(uint256 alienId)

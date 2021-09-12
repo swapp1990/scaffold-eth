@@ -1,15 +1,15 @@
-pragma solidity >=0.6.0 <0.8.0;
 //SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./PlayerMetadataSvg.sol";
 
-contract Player is ERC721, Ownable {
+contract Player is ERC721("Player", "PLR") {
 	using Counters for Counters.Counter;
   	Counters.Counter private _tokenIds;
+  	address owner = address(0);
 	
 	struct Player {
 		uint256 tokenId;
@@ -22,12 +22,18 @@ contract Player is ERC721, Ownable {
 
 	event PlayerCreated(uint256 tokenId);
 
-	constructor() public ERC721("Player", "PLR") {
-    // RELEASE THE LOOGIES!
+	modifier onlyOwner() {
+		require(msg.sender == owner, "ONLY_OWNER");
+		_;
+	}
+
+	function initialize() public {
+		require(owner == address(0), "ALREADY_INITIALIZED");
+		owner = msg.sender;
   	}
 
-	function mintYourPlayer(string memory name)
-		public
+	function mint(string memory name)
+		external onlyOwner
 		returns (uint256) {
 			_tokenIds.increment();
 			uint256 id = _tokenIds.current();

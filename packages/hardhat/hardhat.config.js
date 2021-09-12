@@ -190,27 +190,15 @@ module.exports = {
   solidity: {
     compilers: [
       {
-        version: "0.8.4",
+        version: "0.8.7",
         settings: {
           optimizer: {
-            enabled: true,
-            runs: 200,
+            enabled: false,
+            runs: 999,
           },
         },
-      },
-      {
-        version: "0.6.7",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
-        },
-      },
+      }
     ],
-  },
-  ovm: {
-    solcVersion: "0.7.6",
   },
   namedAccounts: {
     deployer: {

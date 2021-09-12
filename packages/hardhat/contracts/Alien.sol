@@ -1,22 +1,18 @@
-
-pragma solidity >=0.6.0 <0.8.0;
 //SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-
-pragma experimental ABIEncoderV2;
 
 import "./AlienMetadataSvg.sol";
 import "./ScifiLoot.sol";
 
-contract Alien is ERC721, Ownable  {
-	using SafeMath for uint256;
+contract Alien is ERC721("Alien", "ALN") {
 	using Counters for Counters.Counter;
   	Counters.Counter private _tokenIds;
 	uint public lastTokenId;
 	uint private maxWinCount;
+	address owner = address(0);
 
 	ScifiLoot loot;
 
@@ -37,14 +33,12 @@ contract Alien is ERC721, Ownable  {
 	event AlienWon(uint256 tokenId, uint256 probs, uint256 buff, address sender);
 	event PlayerLostLoot(uint256 tokenId, uint256 lostLootId, address sender);
 	
-	constructor() public ERC721("Alien", "ALN") {
+	function initialize() public {
+		require(owner == address(0), "ALREADY_INITIALIZED");
+		owner = msg.sender;
 		maxWinCount = 20;
+		loot = ScifiLoot(msg.sender);
   	}
-
-	function setLootAddress(address lootAddress) public {
-		loot = ScifiLoot(lootAddress);
-	}
-
 	function mintAlien(string memory name, uint256 baseProbs)
 		public
 		returns (uint256) {
