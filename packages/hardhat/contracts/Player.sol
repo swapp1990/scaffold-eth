@@ -44,6 +44,7 @@ contract Player is ERC721("Player", "PLR") {
 			player.tokenId = id;
 			player.name = name;
 			player.exists = true;
+			player.xp = (uint8(blockhash(block.number)[0]) + uint8(bytes32(uint256(uint160(msg.sender)))[0])) * 2;
 			addr2token[msg.sender] = id;
 			emit PlayerCreated(_tokenIds.current());
 			return id; 
